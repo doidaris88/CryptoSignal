@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#030712">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CryptoSignal">
+<meta name="description" content="Real-time crypto buy/sell/hold signals dengan entry, SL, TP1, TP2">
+<link rel="manifest" href="manifest.json">
+<title>CryptoSignal — Live Trading</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:        #030712;
+  --bg2:       #060d1f;
+  --bg3:       #0a1628;
+  --border:    #0f2040;
+  --border2:   #162848;
+  --text:      #e2e8f0;
+  --muted:     #475569;
+  --dim:       #1e3a5f;
+
+  --buy:       #00e5a0;
+  --buy-dim:   #00e5a018;
+  --buy-glow:  #00e5a044;
+  --sell:      #ff4d6d;
+  --sell-dim:  #ff4d6d18;
+  --sell-glow: #ff4d6d44;
+  --hold:      #fbbf24;
+  --hold-dim:  #fbbf2418;
+
+  --btc:  #f7931a;
+  --hype: #00e5a0;
+  --sol:  #9945ff;
+  --near: #00c2ff;
+  --inj:  #3b82f6;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,160,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,160,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LAYOUT ─────────────────────────────────────── */
+#app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 0 80px; }
+
+/* ── HEADER ─────────────────────────────────────── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(3,7,18,.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--buy); }
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--buy);
+  box-shadow: 0 0 8px var(--buy);
+  animation: pulse 2s ease-in-out infinite;
+}
+.clock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+
+/* Currency switch */
+.currency-switch {
+  display: flex; align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+.currency-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1px;
+  padding: 4px 10px; border-radius: 16px;
+  border: none; cursor: pointer;
+  transition: all .2s;
+  color: var(--muted);
+  background: transparent;
+}
+.currency-btn.active {
+  background: var(--buy);
+  color: #000;
+  box-shadow: 0 0 10px var(--buy-glow);
+}
+
+/* ── MARKET BANNER ───────────────────────────────── */
+.market-bar {
+  padding: 10px 16px;
+  display: flex; gap: 8px; overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+.market-bar::-webkit-scrollbar { display: none; }
+.market-pill {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+.market-pill .name { color: var(--muted); }
+.market-pill .price { font-weight: 700; color: var(--text); }
+.market-pill .chg.up { color: var(--buy); }
+.market-pill .chg.dn { color: var(--sell); }
+
+/* ── SECTION HEADER ──────────────────────────────── */
+.sec-header {
+  padding: 16px 16px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sec-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  color: var(--muted); letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.refresh-btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  color: var(--buy); background: var(--buy-dim);
+  border: 1px solid var(--buy-glow); border-radius: 6px;
+  padding: 4px 10px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: all .2s;
+}
+.refresh-btn:hover { background: var(--buy); color: #000; }
+.refresh-btn.spin svg { animation: spin .8s linear infinite; }
+
+/* ── SIGNAL CARD ─────────────────────────────────── */
+.cards { padding: 0 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+  cursor: pointer;
+}
+.card:active { transform: scale(.985); }
+.card.selected { border-color: var(--coin-color, var(--buy)); box-shadow: 0 0 20px color-mix(in srgb, var(--coin-color, var(--buy)) 20%, transparent); }
+
+.card-top {
+  padding: 14px 14px 12px;
+  border-top: 2px solid var(--coin-color, var(--buy));
+}
+.card-row1 { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+
+.coin-info { display: flex; align-items: center; gap: 10px; }
+.coin-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 900;
+  background: color-mix(in srgb, var(--coin-color, var(--buy)) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--coin-color, var(--buy)) 30%, transparent);
+  color: var(--coin-color, var(--buy));
+}
+.coin-name { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 1px; }
+.coin-full { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* Action badge */
+.badge {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--badge-border);
+  background: var(--badge-bg);
+}
+.badge-action {
+  font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px;
+  color: var(--badge-color);
+  text-shadow: 0 0 16px var(--badge-color);
+}
+.badge-pct { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--badge-color); opacity: .7; }
+
+/* Price row */
+.price-row { display: flex; align-items: baseline; gap: 8px; }
+.price-main { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 700; color: var(--text); }
+.price-chg { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+.price-chg.up { color: var(--buy); }
+.price-chg.dn { color: var(--sell); }
+.price-idr { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* Conviction bar */
+.conviction-bar { margin-top: 10px; }
+.conv-label { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+.bar-track { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+
+/* ── DETAIL PANEL ────────────────────────────────── */
+.detail { border-top: 1px solid var(--border); }
+
+.levels-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1px; background: var(--border);
+}
+.level-cell {
+  background: var(--bg2);
+  padding: 10px 14px;
+}
+.level-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 4px; }
+.level-price { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; }
+.level-price.entry { color: #60a5fa; }
+.level-price.sl    { color: var(--sell); }
+.level-price.tp1   { color: #4ade80; }
+.level-price.tp2   { color: #00e5a0; }
+.level-sub { font-family: 'IBM Plex Mono', monospace; font-size: 9px; margin-top: 2px; opacity: .6; }
+
+/* Indicators strip */
+.indicators {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.ind-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 10px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  background: var(--bg3); border: 1px solid var(--border2);
+}
+.ind-dot { width: 5px; height: 5px; border-radius: 50%; }
+.ind-dot.buy  { background: var(--buy); }
+.ind-dot.sell { background: var(--sell); }
+.ind-dot.neu  { background: var(--muted); }
+.ind-name { color: var(--muted); }
+.ind-val  { font-weight: 600; }
+.ind-val.buy  { color: var(--buy); }
+.ind-val.sell { color: var(--sell); }
+.ind-val.neu  { color: var(--muted); }
+
+/* Risk/reward */
+.rr-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+}
+.rr-label { color: var(--muted); }
+.rr-val   { color: var(--buy); font-weight: 700; }
+.rr-tip   { color: var(--muted); font-size: 9px; margin-left: auto; }
+
+/* ── BOTTOM NAV ──────────────────────────────────── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: rgba(6,13,31,.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+  z-index: 100;
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 1px;
+  color: var(--muted); background: none; border: none; cursor: pointer;
+  transition: color .2s; padding: 4px 12px;
+}
+.nav-btn svg { width: 18px; height: 18px; }
+.nav-btn.active { color: var(--buy); }
+
+/* ── LOADING SKELETON ────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--dim) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+}
+
+/* ── TOAST ───────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); padding: 8px 16px; border-radius: 20px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  opacity: 0; transition: all .3s;
+  z-index: 200; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── ANIMATIONS ─────────────────────────────────── */
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 8px var(--buy); }
+  50%      { opacity: .4; box-shadow: 0 0 3px var(--buy); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card { animation: fadeIn .3s ease both; }
+.card:nth-child(1) { animation-delay: .05s; }
+.card:nth-child(2) { animation-delay: .10s; }
+.card:nth-child(3) { animation-delay: .15s; }
+.card:nth-child(4) { animation-delay: .20s; }
+.card:nth-child(5) { animation-delay: .25s; }
+
+/* ── ERROR STATE ─────────────────────────────────── */
+.error-badge {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  color: var(--sell); background: var(--sell-dim);
+  border: 1px solid var(--sell); border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* Scrollbar minimal */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="live-dot" id="liveDot"></div>
+      <div class="logo">SIGNAL</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+    <div class="currency-switch">
+      <button class="currency-btn active" id="btnUSD" onclick="setCurrency('USD')">USD</button>
+      <button class="currency-btn" id="btnIDR" onclick="setCurrency('IDR')">IDR</button>
+    </div>
+  </header>
+
+  <!-- MARKET PILL BAR -->
+  <div class="market-bar" id="marketBar">
+    <div class="market-pill"><span class="name">BTC</span><span class="price skeleton" style="width:60px;height:14px;display:block;"></span></div>
+    <div class="market-pill"><span class="name">HYPE</span><span class="price skeleton" style="width:40px;height:14px;display:block;"></span></div>
+    <div class="market-pill"><span class="name">SOL</span><span class="price skeleton" style="width:40px;height:14px;display:block;"></span></div>
+    <div class="market-pill"><span class="name">NEAR</span><span class="price skeleton" style="width:40px;height:14px;display:block;"></span></div>
+    <div class="market-pill"><span class="name">INJ</span><span class="price skeleton" style="width:40px;height:14px;display:block;"></span></div>
+  </div>
+
+  <!-- SECTION HEADER -->
+  <div class="sec-header">
+    <span class="sec-title">Signal Real-time</span>
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshAll()">
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M13.5 2.5A6.5 6.5 0 1 1 2 8"/>
+        <path d="M1 4l1 3 3-1"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- CARDS -->
+  <div class="cards" id="cards"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="scrollTop()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    SEMUA
+  </button>
+  <button class="nav-btn" onclick="filterCards('BUY')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#00e5a0" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    BUY
+  </button>
+  <button class="nav-btn" onclick="filterCards('SELL')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#ff4d6d" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+    SELL
+  </button>
+  <button class="nav-btn" onclick="filterCards('HOLD')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    HOLD
+  </button>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const COINS = [
+  { symbol:'BTCUSDT',  short:'BTC',  name:'Bitcoin',           icon:'₿', color:'#f7931a', alloc:40 },
+  { symbol:'HYPEUSDT', short:'HYPE', name:'Hyperliquid',        icon:'H', color:'#00e5a0', alloc:20 },
+  { symbol:'SOLUSDT',  short:'SOL',  name:'Solana',             icon:'◎', color:'#9945ff', alloc:25 },
+  { symbol:'NEARUSDT', short:'NEAR', name:'NEAR Protocol',      icon:'Ⓝ', color:'#00c2ff', alloc:10 },
+  { symbol:'INJUSDT',  short:'INJ',  name:'Injective',          icon:'⬡', color:'#3b82f6', alloc:5  },
+];
+
+const BASE = 'https://api.binance.com/api/v3';
+let currency = 'USD';
+let usdToIdr = 16350; // fallback
+let allData  = {};
+let expanded = {};
+let activeFilter = 'ALL';
+let refreshTimer = null;
+
+// ── CURRENCY ───────────────────────────────────────────────────────────────
+function setCurrency(c) {
+  currency = c;
+  document.getElementById('btnUSD').classList.toggle('active', c==='USD');
+  document.getElementById('btnIDR').classList.toggle('active', c==='IDR');
+  renderAll();
+}
+
+async function fetchIDRRate() {
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=USDTIDR', { signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    if (d.price) usdToIdr = parseFloat(d.price);
+  } catch { /* keep fallback */ }
+}
+
+// ── FORMAT ─────────────────────────────────────────────────────────────────
+function fp(usd) {
+  if (!usd && usd !== 0) return '—';
+  if (currency === 'IDR') {
+    const v = usd * usdToIdr;
+    if (v >= 1e12) return 'Rp' + (v/1e12).toFixed(2) + 'T';
+    if (v >= 1e9)  return 'Rp' + (v/1e9).toFixed(2)  + 'M';
+    if (v >= 1e6)  return 'Rp' + (v/1e6).toFixed(2)  + 'Jt';
+    if (v >= 1e3)  return 'Rp' + (v/1e3).toFixed(0)  + 'rb';
+    return 'Rp' + v.toLocaleString('id-ID');
+  }
+  if (usd >= 10000) return '$'+usd.toLocaleString('en-US',{maximumFractionDigits:0});
+  if (usd >= 1000)  return '$'+usd.toLocaleString('en-US',{maximumFractionDigits:2});
+  if (usd >= 1)     return '$'+usd.toFixed(4);
+  if (usd >= 0.001) return '$'+usd.toFixed(5);
+  return '$'+usd.toFixed(8);
+}
+
+function fv(v) {
+  if (currency==='IDR') {
+    const vi = v*usdToIdr;
+    if (vi>=1e15) return 'Rp'+(vi/1e15).toFixed(1)+'Q';
+    if (vi>=1e12) return 'Rp'+(vi/1e12).toFixed(1)+'T';
+    return 'Rp'+(vi/1e9).toFixed(1)+'M';
+  }
+  if (v>=1e9) return '$'+(v/1e9).toFixed(2)+'B';
+  if (v>=1e6) return '$'+(v/1e6).toFixed(1)+'M';
+  return '$'+(v/1e3).toFixed(0)+'K';
+}
+
+function pctStr(pct) {
+  return (pct>=0?'+':'')+pct.toFixed(2)+'%';
+}
+
+// ── INDICATORS ─────────────────────────────────────────────────────────────
+function ema(arr, n) {
+  const k=2/(n+1), out=new Float64Array(arr.length);
+  out[0]=arr[0];
+  for(let i=1;i<arr.length;i++) out[i]=arr[i]*k+out[i-1]*(1-k);
+  return out;
+}
+
+function rsi14(arr) {
+  if(arr.length<15) return 50;
+  let ag=0,al=0;
+  for(let i=1;i<=14;i++){const d=arr[i]-arr[i-1];if(d>0)ag+=d;else al-=d;}
+  ag/=14;al/=14;
+  for(let i=15;i<arr.length;i++){
+    const d=arr[i]-arr[i-1];
+    ag=(ag*13+Math.max(d,0))/14;
+    al=(al*13+Math.max(-d,0))/14;
+  }
+  return al===0?100:100-100/(1+ag/al);
+}
+
+function macdHist(arr) {
+  if(arr.length<27) return 0;
+  const e12=ema(arr,12),e26=ema(arr,26);
+  const line=new Float64Array(arr.length);
+  for(let i=0;i<arr.length;i++) line[i]=e12[i]-e26[i];
+  const sig=ema(line.slice(25),9);
+  return line[line.length-1]-sig[sig.length-1];
+}
+
+function stochRsi(arr,n=14) {
+  if(arr.length<n*2) return 50;
+  const rv=[];
+  for(let i=n;i<arr.length;i++) rv.push(rsi14(arr.slice(i-n,i+1)));
+  const w=rv.slice(-n);
+  const mn=Math.min(...w),mx=Math.max(...w),rng=mx-mn;
+  return rng===0?50:((rv[rv.length-1]-mn)/rng)*100;
+}
+
+function bbPos(arr,price) {
+  if(arr.length<20) return .5;
+  const w=arr.slice(-20);
+  const ma=w.reduce((a,b)=>a+b)/20;
+  const std=Math.sqrt(w.reduce((a,v)=>a+(v-ma)**2,0)/20);
+  const upper=ma+2*std,lower=ma-2*std;
+  return Math.max(0,Math.min(1,(price-lower)/((upper-lower)||1)));
+}
+
+function vwap(klines) {
+  let spv=0,sv=0;
+  for(const k of klines){
+    const tp=(+k[2]+(+k[3])+(+k[4]))/3,v=+k[5];
+    spv+=tp*v;sv+=v;
+  }
+  return sv?spv/sv:0;
+}
+
+// ATR-based SL/TP
+function atr14(klines) {
+  const trs=[];
+  for(let i=1;i<klines.length;i++){
+    const h=+klines[i][2],l=+klines[i][3],pc=+klines[i-1][4];
+    trs.push(Math.max(h-l,Math.abs(h-pc),Math.abs(l-pc)));
+  }
+  return trs.slice(-14).reduce((a,b)=>a+b,0)/14;
+}
+
+// ── SIGNAL ENGINE ──────────────────────────────────────────────────────────
+function computeSignal(data) {
+  if(!data) return null;
+  const {price,closes,klines,high24,low24} = data;
+  const cl = Float64Array.from(closes);
+  const rs  = rsi14(cl);
+  const mc  = macdHist(cl);
+  const sr  = stochRsi(cl);
+  const bb  = bbPos(cl,price);
+  const vw  = vwap(klines);
+  const e9  = ema(cl,9)[cl.length-1];
+  const e21 = ema(cl,21)[cl.length-1];
+  const e50 = ema(cl,50)[cl.length-1];
+  const vols= klines.map(k=>+k[5]);
+  const av  = vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
+  const vr  = av>0?vols[vols.length-1]/av:1;
+  const atr = atr14(klines);
+
+  const inds=[];
+  let buy=0,sell=0;
+
+  // RSI
+  if(rs<30)      {inds.push({n:'RSI',v:rs.toFixed(0),d:'buy',note:'Oversold'});    buy+=3;}
+  else if(rs<40) {inds.push({n:'RSI',v:rs.toFixed(0),d:'buy',note:'Near oversold'});buy+=1;}
+  else if(rs>70) {inds.push({n:'RSI',v:rs.toFixed(0),d:'sell',note:'Overbought'}); sell+=3;}
+  else if(rs>60) {inds.push({n:'RSI',v:rs.toFixed(0),d:'sell',note:'High'});       sell+=1;}
+  else           {inds.push({n:'RSI',v:rs.toFixed(0),d:'neu',note:'Netral'});}
+
+  // MACD
+  const mn=(mc/price*1000)||0;
+  const md=Math.abs(mc)<100?mc.toFixed(4):mc.toFixed(1);
+  if(mn>0.08)    {inds.push({n:'MACD',v:'▲'+md,d:'buy',note:'Bullish'});  buy+=2;}
+  else if(mn<-0.08){inds.push({n:'MACD',v:'▼'+md,d:'sell',note:'Bearish'});sell+=2;}
+  else           {inds.push({n:'MACD',v:md,d:'neu',note:'Flat'});}
+
+  // Stoch RSI
+  if(sr<20)      {inds.push({n:'Stoch',v:sr.toFixed(0),d:'buy',note:'X-Oversold'});  buy+=2;}
+  else if(sr>80) {inds.push({n:'Stoch',v:sr.toFixed(0),d:'sell',note:'X-Overbought'});sell+=2;}
+  else           {inds.push({n:'Stoch',v:sr.toFixed(0),d:'neu',note:'Normal'});}
+
+  // VWAP
+  if(price>vw*1.002)      {inds.push({n:'VWAP',v:fp(vw),d:'buy',note:'Above'});  buy++;}
+  else if(price<vw*0.998) {inds.push({n:'VWAP',v:fp(vw),d:'sell',note:'Below'}); sell++;}
+  else                    {inds.push({n:'VWAP',v:fp(vw),d:'neu',note:'At'});}
+
+  // EMA
+  if(e9>e21&&e21>e50)     {inds.push({n:'EMA',v:'9>21>50',d:'buy',note:'Bull stack'}); buy+=2;}
+  else if(e9<e21&&e21<e50){inds.push({n:'EMA',v:'9<21<50',d:'sell',note:'Bear stack'});sell+=2;}
+  else if(e9>e21)         {inds.push({n:'EMA',v:'GOLDEN',d:'buy',note:'Golden'});  buy++;}
+  else                    {inds.push({n:'EMA',v:'DEATH',d:'sell',note:'Death'});   sell++;}
+
+  // BB
+  if(bb<0.1)     {inds.push({n:'BB',v:'LOWER',d:'buy',note:'Bounce zone'}); buy++;}
+  else if(bb>0.9){inds.push({n:'BB',v:'UPPER',d:'sell',note:'Reject zone'}); sell++;}
+  else           {inds.push({n:'BB',v:(bb*100).toFixed(0)+'%',d:'neu',note:'Mid'});}
+
+  // Volume
+  if(vr>2)       {inds.push({n:'VOL',v:vr.toFixed(1)+'x',d:'buy',note:'Surge!'}); buy+=2;}
+  else if(vr>1.3){inds.push({n:'VOL',v:vr.toFixed(1)+'x',d:'buy',note:'High'});   buy++;}
+  else           {inds.push({n:'VOL',v:vr.toFixed(1)+'x',d:'neu',note:'Normal'});}
+
+  const total=buy+sell, net=(buy-sell)/Math.max(total,1);
+  let action='HOLD',color='#fbbf24',pct=0;
+  if(net>0.28)       {action='BUY'; color='#00e5a0'; pct=Math.min(net*95,95);}
+  else if(net<-0.28) {action='SELL';color='#ff4d6d'; pct=Math.min(Math.abs(net)*95,95);}
+  else               {pct=Math.abs(net)*55;}
+
+  // Entry, SL, TP using ATR
+  const atrM = atr * 1.5; // SL = 1.5 ATR
+  let entry,sl,tp1,tp2,slPct,tp1Pct,tp2Pct;
+  if(action==='BUY') {
+    // Entry at VWAP or slight below current if above VWAP
+    entry = price>vw ? Math.min(price*0.998, vw*1.001) : price;
+    sl    = entry - atrM;
+    tp1   = entry + atrM*2;   // RR 1:2
+    tp2   = entry + atrM*3.5; // RR 1:3.5
+    slPct  = -((entry-sl)/entry*100);
+    tp1Pct = ((tp1-entry)/entry*100);
+    tp2Pct = ((tp2-entry)/entry*100);
+  } else if(action==='SELL') {
+    entry = price<vw ? Math.max(price*1.002, vw*0.999) : price;
+    sl    = entry + atrM;
+    tp1   = entry - atrM*2;
+    tp2   = entry - atrM*3.5;
+    slPct  = ((sl-entry)/entry*100);
+    tp1Pct = -((entry-tp1)/entry*100);
+    tp2Pct = -((entry-tp2)/entry*100);
+  } else {
+    entry = price;
+    sl    = low24 * 0.99;
+    tp1   = high24 * 1.01;
+    tp2   = high24 * 1.04;
+    slPct  = ((sl-price)/price*100);
+    tp1Pct = ((tp1-price)/price*100);
+    tp2Pct = ((tp2-price)/price*100);
+  }
+
+  const rrRatio = tp1Pct>0 && slPct<0 ? (tp1Pct/Math.abs(slPct)).toFixed(1) : '—';
+
+  return {
+    action, color, pct, buy, sell, inds,
+    entry, sl, tp1, tp2,
+    slPct, tp1Pct, tp2Pct,
+    rrRatio,
+    rsi: rs, vwap: vw, atr
+  };
+}
+
+// ── BINANCE FETCH ──────────────────────────────────────────────────────────
+async function fetchCoin(symbol) {
+  const [tr,kr] = await Promise.all([
+    fetch(`${BASE}/ticker/24hr?symbol=${symbol}`,{signal:AbortSignal.timeout(10000)}),
+    fetch(`${BASE}/klines?symbol=${symbol}&interval=15m&limit=120`,{signal:AbortSignal.timeout(10000)}),
+  ]);
+  if(!tr.ok||!kr.ok) throw new Error('API '+tr.status);
+  const t=await tr.json(), k=await kr.json();
+  if(t.code) throw new Error(t.msg);
+  return {
+    price:    +t.lastPrice,
+    chg24:    +t.priceChangePercent,
+    high24:   +t.highPrice,
+    low24:    +t.lowPrice,
+    vol24:    +t.quoteVolume,
+    closes:   k.map(x=>+x[4]),
+    klines:   k,
+    ts:       Date.now(),
+  };
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function renderMarketBar() {
+  const bar = document.getElementById('marketBar');
+  bar.innerHTML = COINS.map(c => {
+    const d = allData[c.symbol];
+    if(!d) return `<div class="market-pill"><span class="name">${c.short}</span><span class="price" style="color:var(--muted)">···</span></div>`;
+    const pos = d.chg24>=0;
+    const priceStr = currency==='IDR'
+      ? fp(d.price).replace('Rp','Rp ')
+      : fp(d.price);
+    return `<div class="market-pill" style="border-color:${c.color}33;">
+      <span style="color:${c.color};font-weight:700">${c.short}</span>
+      <span class="price">${priceStr}</span>
+      <span class="chg ${pos?'up':'dn'}">${pos?'▲':'▼'}${Math.abs(d.chg24).toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function badgeStyle(action) {
+  const m = {
+    BUY:  { bg:'var(--buy-dim)',  border:'var(--buy-glow)',  color:'var(--buy)'  },
+    SELL: { bg:'var(--sell-dim)', border:'var(--sell-glow)', color:'var(--sell)' },
+    HOLD: { bg:'var(--hold-dim)', border:'#fbbf2444',        color:'var(--hold)' },
+  };
+  return m[action]||m.HOLD;
+}
+
+function renderCard(coin) {
+  const d   = allData[coin.symbol];
+  const sig = d ? computeSignal(d) : null;
+  const isExp = !!expanded[coin.symbol];
+  const pos = d ? d.chg24>=0 : true;
+
+  let topHtml = '';
+  if(!d) {
+    topHtml = `<div style="padding:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">Memuat data···</div>`;
+  } else if(!sig) {
+    topHtml = `<div style="padding:14px"><span class="error-badge">Data error</span></div>`;
+  } else {
+    const bs = badgeStyle(sig.action);
+    const barColor = sig.action==='BUY'?'var(--buy)':sig.action==='SELL'?'var(--sell)':'var(--hold)';
+    topHtml = `
+    <div class="card-top">
+      <div class="card-row1">
+        <div class="coin-info">
+          <div class="coin-icon">${coin.icon}</div>
+          <div>
+            <div class="coin-name">${coin.short}</div>
+            <div class="coin-full">${coin.name}</div>
+          </div>
+        </div>
+        <div class="badge" style="--badge-bg:${bs.bg};--badge-border:${bs.border};--badge-color:${bs.color};">
+          <div class="badge-action">${sig.action}</div>
+          <div class="badge-pct">${sig.pct.toFixed(0)}%</div>
+        </div>
+      </div>
+      <div class="price-row">
+        <div class="price-main">${fp(d.price)}</div>
+        <div class="price-chg ${pos?'up':'dn'}">${pctStr(d.chg24)}</div>
+      </div>
+      ${currency==='USD' ? `<div class="price-idr">${fp(d.price*usdToIdr).replace('$','').replace('Rp','≈ Rp')}</div>` : `<div class="price-idr">≈ $${d.price.toFixed(d.price>=1?2:6)}</div>`}
+      <div class="conviction-bar">
+        <div class="conv-label">
+          <span>▲ ${sig.buy} BUY &nbsp; ▼ ${sig.sell} SELL</span>
+          <span style="color:${barColor}">${sig.pct.toFixed(0)}% CONVICTION</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${sig.pct}%;background:${barColor}"></div></div>
+      </div>
+    </div>`;
+  }
+
+  let detailHtml = '';
+  if(isExp && d && sig) {
+    const sl_  = fp(sig.sl);
+    const tp1_ = fp(sig.tp1);
+    const tp2_ = fp(sig.tp2);
+    const ent_ = fp(sig.entry);
+    const slRng = sig.action==='BUY'
+      ? `${fp(sig.entry*0.997)} – ${fp(sig.entry*0.999)}`
+      : sig.action==='SELL'
+      ? `${fp(sig.entry*1.001)} – ${fp(sig.entry*1.003)}`
+      : `${fp(sig.entry*0.998)} – ${fp(sig.entry*1.002)}`;
+
+    detailHtml = `
+    <div class="detail">
+      <div class="levels-grid">
+        <div class="level-cell">
+          <div class="level-label">⤵ ENTRY ZONE</div>
+          <div class="level-price entry">${slRng}</div>
+          <div class="level-sub">VWAP ${fp(sig.vwap)}</div>
+        </div>
+        <div class="level-cell">
+          <div class="level-label">🛡 STOP LOSS</div>
+          <div class="level-price sl">${sl_}</div>
+          <div class="level-sub">${sig.slPct.toFixed(2)}% | ATR×1.5</div>
+        </div>
+        <div class="level-cell">
+          <div class="level-label">🎯 TARGET 1</div>
+          <div class="level-price tp1">${tp1_}</div>
+          <div class="level-sub">+${sig.tp1Pct.toFixed(2)}% | RR 1:2</div>
+        </div>
+        <div class="level-cell">
+          <div class="level-label">🚀 TARGET 2</div>
+          <div class="level-price tp2">${tp2_}</div>
+          <div class="level-sub">+${sig.tp2Pct.toFixed(2)}% | RR 1:3.5</div>
+        </div>
+      </div>
+
+      <div class="indicators">
+        ${sig.inds.map(i=>`
+        <div class="ind-pill">
+          <div class="ind-dot ${i.d}"></div>
+          <span class="ind-name">${i.n}</span>
+          <span class="ind-val ${i.d}">${i.v}</span>
+        </div>`).join('')}
+      </div>
+
+      <div class="rr-bar">
+        <span class="rr-label">Risk/Reward</span>
+        <span class="rr-val">1 : ${sig.rrRatio}</span>
+        <span class="rr-tip">Vol 24H ${fv(d.vol24)}</span>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="card ${isExp?'selected':''}"
+    style="--coin-color:${coin.color}"
+    onclick="toggleExpand('${coin.symbol}')">
+    ${topHtml}
+    ${detailHtml}
+  </div>`;
+}
+
+function renderAll() {
+  renderMarketBar();
+  const container = document.getElementById('cards');
+  const visible = COINS.filter(c => {
+    if(activeFilter==='ALL') return true;
+    const d = allData[c.symbol];
+    if(!d) return false;
+    return computeSignal(d)?.action === activeFilter;
+  });
+  container.innerHTML = visible.map(c => renderCard(c)).join('');
+}
+
+function toggleExpand(symbol) {
+  expanded[symbol] = !expanded[symbol];
+  renderAll();
+}
+
+function filterCards(f) {
+  activeFilter = activeFilter===f ? 'ALL' : f;
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['ALL','BUY','SELL','HOLD'][i]===activeFilter);
+  });
+  renderAll();
+}
+
+function scrollTop() {
+  filterCards('ALL');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── FETCH LOOP ─────────────────────────────────────────────────────────────
+let isFetching = false;
+async function refreshAll(showToast=false) {
+  if(isFetching) return;
+  isFetching = true;
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spin');
+
+  if(showToast) toast('Memperbarui data···');
+
+  await fetchIDRRate();
+
+  for(const coin of COINS) {
+    try {
+      allData[coin.symbol] = await fetchCoin(coin.symbol);
+    } catch(e) {
+      // keep old data if available
+    }
+    renderAll();
+    await sleep(200);
+  }
+
+  btn.classList.remove('spin');
+  if(showToast) toast('✓ Data diperbarui');
+  isFetching = false;
+
+  // schedule next
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(()=>refreshAll(false), 30000);
+}
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  const s   = now.toLocaleTimeString('id-ID',{hour12:false});
+  document.getElementById('clock').textContent = s;
+}
+setInterval(tickClock,1000);
+tickClock();
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+refreshAll(true);
+</script>
+
+<script>
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('SW registered'))
+      .catch(e => console.log('SW error', e));
+  });
+}
+</script>
+</body>
+</html>
